@@ -1,6 +1,6 @@
 <div align="center">
 
-# Cursor Usage Overlay
+# Lumos
 
 **A beautiful, native-feeling Windows desktop overlay for live [Cursor](https://cursor.com) plan usage — with predictive forecasts and tear-off widgets you can drop anywhere on your desktop.**
 
