@@ -6,13 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Default theme is now **Glass** (tinted Mica + color presets); Material Design 3 is the secondary option. Existing users keep whatever they already had selected.
+
 ## [0.1.0] — 2026-04-19
 
 Initial public release.
 
 ### Added
 
-- Tauri 2 + React shell with Material Design 3 dark theme (with optional Glass theme).
+- Tauri 2 + React shell with the **Glass dark theme** as default (tinted Mica + color presets) and **Material Design 3** as a solid-surface alternative.
 - Live polling of `https://cursor.com/api/usage-summary` every 10 s with ETag/304 caching and exponential backoff.
 - Modular widget dashboard built on `react-grid-layout`:
   - API Usage hero, mini rings (Auto/API/Total), rings trio
@@ -31,5 +35,5 @@ Initial public release.
 - Author / link block in **Settings → About** with GitHub and LinkedIn.
 - GitHub release machinery: CI workflow (typecheck + clippy), Windows release workflow (NSIS + MSI bundles attached to draft release), issue and PR templates, Dependabot, security policy, contributing guide, EditorConfig.
 
-[Unreleased]: https://github.com/alexbayerl/lumos/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/alexbayerl/lumos/releases/tag/v0.1.0
+[Unreleased]: https://github.com/alexbayerl/cursor-usage-overlay/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/alexbayerl/cursor-usage-overlay/releases/tag/v0.1.0

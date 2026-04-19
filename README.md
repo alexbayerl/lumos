@@ -4,8 +4,8 @@
 
 **A beautiful, native-feeling Windows desktop overlay for live [Cursor](https://cursor.com) plan usage — with predictive forecasts and tear-off widgets you can drop anywhere on your desktop.**
 
-[![Release](https://img.shields.io/github/v/release/alexbayerl/lumos?style=flat-square&color=7c8cff)](https://github.com/alexbayerl/lumos/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/alexbayerl/lumos/total?style=flat-square&color=7c8cff)](https://github.com/alexbayerl/lumos/releases)
+[![Release](https://img.shields.io/github/v/release/alexbayerl/cursor-usage-overlay?style=flat-square&color=7c8cff)](https://github.com/alexbayerl/cursor-usage-overlay/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/alexbayerl/cursor-usage-overlay/total?style=flat-square&color=7c8cff)](https://github.com/alexbayerl/cursor-usage-overlay/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square&logo=tauri&logoColor=white)](https://v2.tauri.app)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square&logo=windows&logoColor=white)](#install)
@@ -27,7 +27,7 @@ The official Cursor dashboard tells you _what_ you've used. It doesn't tell you,
 - ⚡ **Live polling with ETag/304** — refresh every 10 s by default; the Rust backend short-circuits the body when nothing changed
 - 🔢 **Configurable precision** — Auto / 0 / 1 / 2 / 3 decimals; flows through every ring, hero, header, and bar, with live cross-window sync to popouts
 - 🔒 **Secret hygiene** — your `WorkosCursorSessionToken` is stored in **Windows Credential Manager (DPAPI)**, never in a plaintext config
-- 🎨 **Two looks** — Material Design 3 dark by default, optional Glass theme with color presets
+- 🎨 **Two looks** — Glass dark by default (tinted Mica + color presets), with a solid Material Design 3 alternative one click away
 - 🎛️ **System integration** — tray icon, global hotkey (`Ctrl+Alt+U`), Start-with-Windows, persisted window state, taskbar entry, full quit on `✕`
 - 📈 **Local history & sparkline** — last 14 days of snapshots stored in app data
 
@@ -51,7 +51,7 @@ The official Cursor dashboard tells you _what_ you've used. It doesn't tell you,
 
 ### From a release (recommended)
 
-1. Grab the latest **NSIS installer** (`.exe`) or **MSI** from the [Releases page](https://github.com/alexbayerl/lumos/releases/latest).
+1. Grab the latest **NSIS installer** (`.exe`) or **MSI** from the [Releases page](https://github.com/alexbayerl/cursor-usage-overlay/releases/latest).
 2. Run it (per-user install — no admin needed).
 3. Launch **Cursor Usage Overlay** from the Start menu.
 4. On first launch, paste your session cookie (see below) into the **Account** tab. The overlay starts polling immediately.
@@ -84,7 +84,7 @@ The backend extracts only the `WorkosCursorSessionToken` value and stores it in 
 ### Run
 
 ```bash
-git clone https://github.com/alexbayerl/lumos.git
+git clone https://github.com/alexbayerl/cursor-usage-overlay.git
 cd cursor-usage-overlay
 npm install
 npm run tauri dev
@@ -149,7 +149,7 @@ The shortcut points straight at `src-tauri/target/release/cursor_usage_overlay.e
 | Layer            | Choice                                                       |
 | ---------------- | ------------------------------------------------------------ |
 | Shell            | [Tauri 2](https://v2.tauri.app)                              |
-| UI               | React 18 + TypeScript, Material Design 3 tokens              |
+| UI               | React 18 + TypeScript, Glass + Material Design 3 token systems |
 | Layout           | [`react-grid-layout`](https://github.com/react-grid-layout/react-grid-layout) v1 |
 | Window FX        | `window-vibrancy` (Mica/Acrylic) + Win32 DWM rounded corners |
 | HTTP             | `reqwest` with `rustls-tls`, gzip, brotli, ETag/304          |

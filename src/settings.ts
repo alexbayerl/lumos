@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   compactMode: false,
   alwaysOnTop: true,
   clickThrough: false,
-  frameStyle: 'md3',
+  frameStyle: 'glass',
   theme: 'aurora',
   autostart: false,
   showSparkline: true,
@@ -36,7 +36,7 @@ export function loadSettings(): OverlaySettings {
   try {
     const parsed = JSON.parse(source) as Partial<OverlaySettings>;
     const frameStyle: FrameStyle =
-      parsed.frameStyle === 'glass' ? 'glass' : 'md3';
+      parsed.frameStyle === 'md3' ? 'md3' : 'glass';
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
@@ -76,6 +76,6 @@ export const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
 ];
 
 export const FRAME_OPTIONS: { id: FrameStyle; label: string; hint: string }[] = [
-  { id: 'md3', label: 'Material 3', hint: 'Solid surfaces, MD tokens, best readability' },
   { id: 'glass', label: 'Glass', hint: 'Tinted glass + your color theme' },
+  { id: 'md3', label: 'Material 3', hint: 'Solid surfaces, MD tokens, best readability' },
 ];

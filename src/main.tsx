@@ -28,8 +28,9 @@ function applyInitialTheme(): void {
     }
   } catch {
     // Last-resort fallback so we never render token-less.
-    document.documentElement.dataset.frame = 'md3';
+    document.documentElement.dataset.frame = 'glass';
     document.documentElement.dataset.theme = 'aurora';
+    document.documentElement.style.setProperty('--tint', '0.78');
   }
 }
 applyInitialTheme();
