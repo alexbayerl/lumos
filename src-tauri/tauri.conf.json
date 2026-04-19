@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Cursor Usage Overlay",
   "version": "0.1.0",
-  "identifier": "com.openai.cursorusageoverlay",
+  "identifier": "dev.alex.cursorusageoverlay",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -15,25 +15,55 @@
       {
         "label": "main",
         "title": "Cursor Usage Overlay",
-        "width": 460,
-        "height": 520,
-        "minWidth": 380,
-        "minHeight": 300,
+        "width": 560,
+        "height": 720,
+        "minWidth": 360,
+        "minHeight": 360,
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,
         "resizable": true,
         "shadow": false,
         "skipTaskbar": false,
-        "center": true
+        "center": true,
+        "visible": true
       }
     ],
     "security": {
       "csp": null
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": false
     }
   },
   "bundle": {
-    "active": false,
-    "targets": "all"
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "publisher": "Alexander Bayerl",
+    "homepage": "https://github.com/alexbayerl/lumos",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
+    "copyright": "Copyright © Alexander Bayerl",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Beautiful live overlay for Cursor usage",
+    "longDescription": "A polished, always-on-top Windows overlay that displays your Cursor plan usage live, with predictive forecasts of when you'll exhaust your monthly quota and tear-off widgets you can drop anywhere on your desktop.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      },
+      "wix": {
+        "language": ["en-US"]
+      }
+    }
   }
 }

@@ -1,0 +1,790 @@
+/**
+ * Widget framework styling. The widget-frame is the only chrome that wraps
+ * every widget body; individual widget bodies are kept unopinionated so
+ * they look right both as a tiny mini-ring and as a wide hero.
+ *
+ * react-grid-layout's own CSS provides drag/resize behavior; we just override
+ * its presentational bits to match Material 3 here.
+ */
+
+/* ── Grid host ─────────────────────────────────────────── */
+
+.widget-grid-host {
+  width: 100%;
+  position: relative;
+}
+
+.widget-grid-host.is-editing .widget-frame {
+  outline: 1px dashed
+    color-mix(in srgb, var(--md-sys-color-primary, #7c8cff) 40%, transparent);
+  outline-offset: -1px;
+}
+
+.widget-cell {
+  display: flex;
+}
+
+.widget-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(
+    --md-sys-color-surface-container-high,
+    rgba(255, 255, 255, 0.04)
+  );
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in srgb, var(--md-sys-color-outline-variant, transparent) 60%, transparent);
+  cursor: grab;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.widget-frame:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 5%,
+    var(--md-sys-color-surface-container-high, rgba(255, 255, 255, 0.04))
+  );
+}
+.widget-frame:active {
+  cursor: grabbing;
+}
+
+.widget-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.widget-frame.is-popped-out {
+  opacity: 0.5;
+}
+.widget-frame.is-popped-out::after {
+  content: 'on desktop';
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  pointer-events: none;
+}
+
+.widget-frame > .widget-body > .widget {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Drag affordance ────────────────────────────────────
+ *
+ * The entire widget-frame is the drag source for both react-grid-layout
+ * (in edit mode) and our drag-to-detach gesture. We keep things visually
+ * clean by showing only a tiny dotted indicator in the top-right corner on
+ * hover; in edit mode we surface a real header with the widget name and a
+ * remove button.
+ */
+
+.widget-grip-hint {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+.widget-grip-hint > span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+.widget-frame:hover .widget-grip-hint {
+  opacity: 0.45;
+}
+
+/* Edit-mode toolbar inside each widget */
+.widget-edit-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 5%,
+    transparent
+  );
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--md-sys-color-outline-variant, transparent) 40%, transparent);
+}
+.widget-edit-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.widget-toolbar-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.widget-toolbar-btn:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 10%,
+    transparent
+  );
+  color: var(--md-sys-color-on-surface, white);
+}
+.widget-toolbar-btn.danger:hover {
+  color: var(--md-sys-color-error, #ff6b6b);
+}
+.widget-toolbar-btn.is-active {
+  color: var(--md-sys-color-primary, var(--accent));
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary, var(--accent)) 16%,
+    transparent
+  );
+}
+
+/* ── Edit bar (top of dashboard, only in edit mode) ────── */
+
+.edit-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background-color: var(
+    --md-sys-color-secondary-container,
+    rgba(124, 140, 255, 0.18)
+  );
+  color: var(--md-sys-color-on-secondary-container, white);
+  font-size: 12px;
+}
+.edit-bar-hint {
+  flex: 1;
+  min-width: 0;
+}
+.edit-bar-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Add-widget popover ────────────────────────────────── */
+
+.add-widget-wrap {
+  position: relative;
+}
+.add-widget-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 240px;
+  z-index: 50;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  background-color: var(
+    --md-sys-color-surface-container-highest,
+    rgba(20, 24, 36, 0.97)
+  );
+  border-radius: 14px;
+  border: 1px solid
+    color-mix(in srgb, var(--md-sys-color-outline-variant, transparent) 80%, transparent);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  max-height: 280px;
+  overflow: auto;
+}
+.add-widget-item {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 2px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 10px;
+  color: var(--md-sys-color-on-surface, white);
+  cursor: pointer;
+}
+.add-widget-item:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 8%,
+    transparent
+  );
+}
+.add-widget-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.add-widget-desc {
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  line-height: 1.35;
+}
+
+/* ── Widget shared bits ────────────────────────────────── */
+
+.widget-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.widget-eyebrow.muted {
+  opacity: 0.7;
+  letter-spacing: 0.1em;
+}
+.widget-eyebrow.priority {
+  color: var(--md-sys-color-primary, var(--accent));
+}
+.priority-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--md-sys-color-primary, var(--accent));
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 25%, transparent);
+}
+
+.widget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.widget-empty-text {
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+
+/* ── Widget: API hero ──────────────────────────────────── */
+
+.widget-api-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+.api-hero-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+}
+.api-hero-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 108px;
+  flex-shrink: 0;
+}
+.api-hero-ring .ring-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+.api-hero-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.api-hero-headline {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface, var(--text));
+  line-height: 1.3;
+}
+.api-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+  margin: 0;
+}
+.api-hero-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.api-hero-grid dt {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  font-weight: 500;
+}
+.api-hero-grid dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface, var(--text));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* ── Widget: Mini ring ─────────────────────────────────── */
+
+.widget-mini-ring {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mini-ring-body {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+.mini-ring-body .ring-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+.widget-mini-ring.pick-api .widget-eyebrow {
+  color: var(--md-sys-color-primary, var(--accent));
+}
+
+/* ── Widget: Rings trio ────────────────────────────────── */
+
+.widget-rings-trio {
+  flex-direction: row !important;
+  gap: 6px !important;
+  align-items: stretch;
+  height: 100%;
+}
+.trio-cell {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 3%,
+    transparent
+  );
+}
+.trio-cell .ring-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+.trio-emph {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary, var(--accent)) 12%,
+    transparent
+  );
+  outline: 1px solid
+    color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 35%, transparent);
+}
+
+/* ── Widget: Cycle ─────────────────────────────────────── */
+
+.widget-cycle {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cycle-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 0;
+}
+.cycle-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface, var(--text));
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.cycle-unit {
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+.cycle-bar {
+  height: 6px;
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 8%,
+    transparent
+  );
+  border-radius: 999px;
+  overflow: hidden;
+}
+.cycle-bar-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--md-sys-color-primary, var(--accent)),
+    color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 70%, transparent)
+  );
+}
+.cycle-meta {
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+
+/* ── Widget: Quick stat ────────────────────────────────── */
+
+.widget-quick-stat {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+.quick-stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--md-sys-color-on-surface, var(--text));
+  line-height: 1;
+}
+.quick-stat-sub {
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+
+/* ── Widget: Usage bar ─────────────────────────────────── */
+
+.widget-usage-bar {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bar-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.bar-headline-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--md-sys-color-on-surface, var(--text));
+}
+.bar-headline-sub {
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+.usage-bar-track {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 8%,
+    transparent
+  );
+}
+.usage-bar-seg {
+  height: 100%;
+  transition: width 320ms ease;
+}
+.usage-bar-seg.seg-api {
+  background: linear-gradient(
+    90deg,
+    var(--md-sys-color-primary, var(--accent)),
+    color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 60%, white)
+  );
+}
+.usage-bar-seg.seg-auto {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-tertiary, #a8c8ff) 70%, transparent
+  );
+}
+.usage-bar-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  margin-top: 2px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.legend-swatch.swatch-api {
+  background: var(--md-sys-color-primary, var(--accent));
+}
+.legend-swatch.swatch-auto {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-tertiary, #a8c8ff) 70%, transparent
+  );
+}
+
+/* ── Widget: Forecast / Sparkline (reuse existing panels) ─ */
+
+.widget-forecast .forecast-panel {
+  margin-bottom: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.widget-forecast .forecast-grid {
+  margin-top: 4px;
+}
+
+.widget-sparkline {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sparkline-host {
+  flex: 1;
+  min-height: 0;
+}
+.sparkline-host .sparkline {
+  height: 100%;
+  width: 100%;
+}
+
+/* ── react-grid-layout overrides (MD3) ─────────────────── */
+
+.react-grid-item.react-grid-placeholder {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary, var(--accent)) 22%, transparent
+  ) !important;
+  border-radius: 16px !important;
+  opacity: 1 !important;
+}
+
+.react-grid-item > .react-resizable-handle {
+  width: 16px;
+  height: 16px;
+  bottom: 2px;
+  right: 2px;
+  background-image: none;
+  cursor: se-resize;
+}
+.widget-grid-host.is-editing .react-grid-item > .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid
+    color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 60%, transparent);
+  border-bottom: 2px solid
+    color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 60%, transparent);
+  border-bottom-right-radius: 3px;
+}
+.widget-grid-host:not(.is-editing) .react-grid-item > .react-resizable-handle {
+  display: none;
+}
+
+/* ── Solo widget window (popped out) ─────────────────────
+ *
+ * The popped-out widget MUST read as the same visual object as its
+ * dashboard counterpart — same MD3 surface, same border-radius, same
+ * card chrome — just floating on the desktop instead of inside the grid.
+ *
+ * The OS window is transparent + Mica; `.solo-frame` (a regular
+ * `.widget-frame`) paints the dark rounded card on top so the widget
+ * looks identical to its dashboard cell.
+ *
+ * To win back every pixel for the data itself, we hide the widget's
+ * eyebrow chip ("API · NAMED MODELS" etc.) — in solo mode the window
+ * IS the widget, so the kind label is redundant.
+ */
+
+.solo-shell {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  cursor: grab;
+  user-select: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface, var(--text));
+  display: flex;
+  padding: 4px;
+  overflow: hidden;
+}
+.solo-shell:active {
+  cursor: grabbing;
+}
+
+/* The solo card is a normal widget-frame with a slightly larger radius
+   to match the OS DWM corner rounding. */
+.solo-frame {
+  flex: 1;
+  min-width: 0;
+  border-radius: 12px;
+  cursor: grab;
+}
+.solo-frame:active {
+  cursor: grabbing;
+}
+
+.solo-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+}
+.solo-empty.error {
+  color: var(--md-sys-color-error, #ff6b6b);
+  text-align: center;
+  padding: 12px;
+}
+
+/* Top-right close button — fades in on hover so it doesn't clutter the chrome */
+.solo-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface, white) 8%,
+    transparent
+  );
+  color: var(--md-sys-color-on-surface-variant, var(--muted));
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 140ms ease, background-color 120ms ease, color 120ms ease;
+  z-index: 10;
+}
+.solo-shell:hover .solo-close,
+.solo-close:focus-visible {
+  opacity: 1;
+}
+.solo-close:hover {
+  background-color: var(--md-sys-color-error, #ff6b6b);
+  color: var(--md-sys-color-on-error, white);
+}
+
+/* In a popped-out window the API hero is more vertical — stack ring above stats */
+@media (max-width: 320px) {
+  .api-hero-body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 6px;
+  }
+  .api-hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    text-align: center;
+  }
+}
+
+/* ── Solo-window chrome stripping ───────────────────────
+ *
+ * When a widget is its own window the kind label ("API · NAMED MODELS",
+ * "AUTO MODEL", etc.) is redundant — the user explicitly placed THIS
+ * widget on their desktop. We drop those eyebrow chips and the api-hero's
+ * "ULTRA · USER" header so the data sits flush against the Mica blur,
+ * with zero outer container.
+ */
+/* Solo windows: kill the page background so only the .solo-frame shows. */
+html[data-solo='true'],
+html[data-solo='true'] body {
+  background: transparent !important;
+}
+
+/* Hide every chrome/label inside a solo frame so 100% of the card area
+   belongs to the data (ring, forecast number, sparkline, ...). */
+.solo-frame .widget-eyebrow,
+.solo-frame .forecast-eyebrow {
+  display: none;
+}
+
+/* Tighter widget padding inside the solo card — same chrome, less air. */
+.solo-frame > .widget-body {
+  padding: 6px 8px;
+}
+
+/* Mini-rings: center the gauge inside the whole card. */
+.solo-frame .widget-mini-ring {
+  gap: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.solo-frame .mini-ring-body {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+/* The inner ring-card was already chrome-less in mini-ring usage; reassert
+   here so even widgets that re-use RingGauge in other shapes stay clean. */
+.solo-frame .mini-ring-body .ring-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  min-height: 0;
+}

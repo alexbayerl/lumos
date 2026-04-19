@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement or a new widget
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Focus on the user-visible problem before any solution.
+      placeholder: I can never tell when I'll run out of API quota mid-session because the dashboard requires a tab switch.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea (optional)
+      description: A sketch of how you'd like it to work. Mockups welcome.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

@@ -1,4 +1,6 @@
-# Recommended architecture
+# Architecture decisions
+
+This document captures the early stack-selection rationale, kept around for posterity. The current architecture summary lives in the [README](../README.md#architecture-in-one-screen).
 
 ## Recommendation
 

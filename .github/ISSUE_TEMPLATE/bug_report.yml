@@ -1,0 +1,63 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill in as much as you can.
+        **Do not paste your `WorkosCursorSessionToken` or any cookie value.**
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: From Settings → About (e.g. `0.1.0`)
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      description: Run `winver` and paste the build number
+      placeholder: "Windows 11 23H2 (22631.4317)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: When I drag the API hero out of the window, the popout window appears 200px to the left of my cursor.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps so we can hit the same path you did.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Optional. Drag images here. For Rust panics, the log usually appears in the terminal when running `npm run tauri dev`.
+    validations:
+      required: false

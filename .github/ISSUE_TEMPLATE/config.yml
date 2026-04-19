@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Cursor product / API questions
+    url: https://forum.cursor.com
+    about: This project is unaffiliated with Cursor. For questions about the Cursor app, billing, or API, use the official forum.

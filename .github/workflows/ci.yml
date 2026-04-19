@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs of the same ref to keep PR feedback snappy.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & typecheck (windows-latest)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Typecheck + Vite build
+        run: npm run build
+
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --all-targets --locked
+
+      - name: Cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+        # Don't fail PRs on clippy hygiene the first time the workflow runs;
+        # remove `continue-on-error` once warnings are cleaned up.
+        continue-on-error: true

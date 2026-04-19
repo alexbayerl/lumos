@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.1.0). Only used for manual runs.'
+        required: false
+
+# Build the Windows installer + portable zip, attach to a GitHub Release as a
+# draft so the maintainer can review notes before publishing.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows installers
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Build Tauri bundles (NSIS + MSI)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Cursor Usage Overlay ${{ github.ref_name }}'
+          releaseBody: |
+            See [CHANGELOG](https://github.com/alexbayerl/lumos/releases) for details.
+
+            ### Install
+
+            - **NSIS installer** (`.exe`) — recommended, per-user install, no admin needed
+            - **MSI** — for managed environments / Group Policy
+
+            ### Verify
+
+            File hashes are listed in the asset names. The build is reproducible from this commit on `windows-latest`.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: false
+          args: --bundles nsis,msi

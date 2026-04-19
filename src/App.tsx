@@ -1,119 +1,52 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { FetchUsageResult, OverlaySettings, UsageSummaryResponse } from './types';
+import { isEnabled as isAutostartEnabled } from '@tauri-apps/plugin-autostart';
+import type {
+  FetchUsageResult,
+  OverlaySettings,
+  UsageError,
+  UsageSnapshot,
+  UsageSummaryResponse,
+} from './types';
+import { loadSettings, saveSettings } from './settings';
+import { formatPercentDetailed } from './format';
+import { computeForecast } from './forecast';
+import { loadHistory, recordSnapshot } from './history';
+import { SettingsPanel } from './components/SettingsPanel';
+import { WidgetGrid } from './widgets/WidgetGrid';
+import { AddWidgetMenu } from './widgets/AddWidgetMenu';
+import {
+  loadLayout,
+  newWidget,
+  resetLayout,
+  saveLayout,
+} from './widgets/registry';
+import {
+  closePopOut,
+  loadPopOuts,
+  restorePopOuts,
+  savePopOuts,
+  type PopOutDescriptor,
+} from './widgets/popouts';
+import type { WidgetContext, WidgetInstance, WidgetKind } from './widgets/types';
 
-const STORAGE_KEY = 'cursor-usage-overlay.settings.v1';
-
-const defaultSettings: OverlaySettings = {
-  refreshIntervalSec: 10,
-  opacity: 0.96,
-  compactMode: false,
-  alwaysOnTop: true
-};
-
-function loadSettings(): OverlaySettings {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return defaultSettings;
-  try {
-    const parsed = JSON.parse(raw) as Partial<OverlaySettings>;
-    return {
-      ...defaultSettings,
-      ...parsed,
-      refreshIntervalSec: clampNumber(parsed.refreshIntervalSec, 5, 300, 10),
-      opacity: clampNumber(parsed.opacity, 0.55, 1, 0.96)
-    };
-  } catch {
-    return defaultSettings;
-  }
-}
-
-function clampNumber(value: number | undefined, min: number, max: number, fallback: number) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
-}
-
-function formatDate(value: string) {
+function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
   }).format(new Date(value));
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value);
-}
-
-function percentToDisplay(value: number) {
-  return `${value.toFixed(value < 10 ? 1 : 0)}%`;
-}
-
-function toPercent(value: number) {
-  return Math.max(0, Math.min(100, value));
-}
-
-function RingGauge({ label, value }: { label: string; value: number }) {
-  const pct = toPercent(value);
-  const radius = 34;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (pct / 100) * circumference;
-
-  return (
-    <div className="ring-card">
-      <svg className="ring" viewBox="0 0 84 84" aria-hidden="true">
-        <circle className="ring-track" cx="42" cy="42" r={radius} />
-        <circle
-          className="ring-progress"
-          cx="42"
-          cy="42"
-          r={radius}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="ring-center">
-        <div className="ring-value">{percentToDisplay(pct)}</div>
-        <div className="ring-label">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({ title, value, sub }: { title: string; value: string; sub?: string }) {
-  return (
-    <div className="metric-card">
-      <div className="metric-title">{title}</div>
-      <div className="metric-value">{value}</div>
-      {sub ? <div className="metric-sub">{sub}</div> : null}
-    </div>
-  );
-}
-
-function Toggle({
-  checked,
-  onChange,
-  label
-}: {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="toggle-row">
-      <span>{label}</span>
-      <button
-        type="button"
-        className={`toggle ${checked ? 'is-on' : ''}`}
-        onClick={() => onChange(!checked)}
-        aria-pressed={checked}
-      >
-        <span className="toggle-thumb" />
-      </button>
-    </label>
-  );
+function formatRelative(value: string): string {
+  const diffSec = (Date.now() - new Date(value).getTime()) / 1000;
+  if (diffSec < 5) return 'just now';
+  if (diffSec < 60) return `${Math.round(diffSec)}s ago`;
+  if (diffSec < 3600) return `${Math.round(diffSec / 60)}m ago`;
+  return formatDate(value);
 }
 
 export default function App() {
@@ -122,65 +55,89 @@ export default function App() {
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSessionCookie, setHasSessionCookie] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [cookieInput, setCookieInput] = useState('');
-  const [cookieStatus, setCookieStatus] = useState<string | null>(null);
+  const [history, setHistory] = useState<UsageSnapshot[]>([]);
+  const [tick, setTick] = useState(0);
+  const [layout, setLayoutState] = useState<WidgetInstance[]>(() => loadLayout());
+  const [editMode, setEditMode] = useState(false);
+  const [popouts, setPopouts] = useState<PopOutDescriptor[]>(() => loadPopOuts());
+  const recordingRef = useRef<Promise<void> | null>(null);
 
+  // Persist UI prefs + apply window-level prefs
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    document.documentElement.style.setProperty('--overlay-opacity', settings.opacity.toString());
+    saveSettings(settings);
+    document.documentElement.dataset.frame = settings.frameStyle;
+    document.documentElement.dataset.theme = settings.theme;
+    if (settings.frameStyle === 'glass') {
+      document.documentElement.style.setProperty('--tint', settings.opacity.toFixed(3));
+    } else {
+      document.documentElement.style.removeProperty('--tint');
+    }
     void getCurrentWindow().setAlwaysOnTop(settings.alwaysOnTop);
+    void invoke('set_click_through', { enabled: settings.clickThrough });
+    void invoke('set_poll_interval', { secs: settings.refreshIntervalSec });
+    // Broadcast to popout windows so display prefs (e.g. percent decimals)
+    // stay in sync without requiring the user to reopen them.
+    void emit('settings-changed', settings);
   }, [settings]);
 
-  const usage = summary?.individualUsage.plan;
-  const titleMessage = summary?.autoModelSelectedDisplayMessage ?? 'Live Cursor usage';
-  const subtitleMessage = summary?.namedModelSelectedDisplayMessage ?? 'API usage overview';
+  // Persist layout
+  useEffect(() => {
+    saveLayout(layout);
+  }, [layout]);
 
-  async function refresh(forceSpinner = false) {
-    if (forceSpinner) {
-      setRefreshing(true);
-    }
+  // Persist popouts list
+  useEffect(() => {
+    savePopOuts(popouts);
+  }, [popouts]);
 
-    try {
-      const result = await invoke<FetchUsageResult>('fetch_usage_summary');
-      setSummary(result.data);
-      setLastFetchedAt(result.fetchedAt);
-      setFromCache(result.fromCache);
-      setError(null);
-      setHasSessionCookie(true);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
+  // On first mount, recreate any popped-out widgets the user had open last
+  // session (best-effort — failures are silently dropped).
+  useEffect(() => {
+    void restorePopOuts(loadPopOuts());
+  }, []);
 
+  // When a popped-out window is closed (user clicks ✕), Rust emits
+  // `popout-closed` with the widget id so we can drop it from the list.
+  useEffect(() => {
+    const unlistenP = listen<string>('popout-closed', (event) => {
+      const id = event.payload;
+      setPopouts((prev) => prev.filter((p) => p.id !== id));
+    });
+    return () => {
+      void unlistenP.then((u) => u());
+    };
+  }, []);
+
+  // Bootstrap
   useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
       try {
-        const hasCookie = await invoke<boolean>('has_session_cookie');
+        const [hasCookie, autostart, hist] = await Promise.all([
+          invoke<boolean>('has_session_cookie'),
+          isAutostartEnabled().catch(() => false),
+          loadHistory(),
+        ]);
         if (cancelled) return;
         setHasSessionCookie(hasCookie);
+        setHistory(hist);
+        setSettings((prev) => ({ ...prev, autostart }));
         if (!hasCookie) {
           setLoading(false);
           setSettingsOpen(true);
           return;
         }
-        await refresh();
+        await invoke('force_refresh');
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
+          setError(errorToString(err));
           setLoading(false);
         }
       }
     }
-
     void bootstrap();
     return () => {
       cancelled = true;
@@ -188,139 +145,203 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!hasSessionCookie) return;
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, settings.refreshIntervalSec * 1000);
+    const unlistenP = Promise.all([
+      listen<FetchUsageResult>('usage-updated', (event) => {
+        const result = event.payload;
+        setSummary(result.data);
+        setLastFetchedAt(result.fetchedAt);
+        setFromCache(result.fromCache);
+        setError(null);
+        setLoading(false);
+        setHasSessionCookie(true);
+        if (!recordingRef.current) {
+          recordingRef.current = (async () => {
+            try {
+              setHistory((prev) => {
+                void recordSnapshot(prev, result.fetchedAt, result.data).then((next) =>
+                  setHistory(next),
+                );
+                return prev;
+              });
+            } finally {
+              recordingRef.current = null;
+            }
+          })();
+        }
+      }),
+      listen<UsageError>('usage-error', (event) => {
+        setError(event.payload.message);
+        setLoading(false);
+        if (event.payload.auth) setSettingsOpen(true);
+      }),
+      listen<void>('open-settings', () => setSettingsOpen(true)),
+    ]);
+    return () => {
+      void unlistenP.then((unlisten) => unlisten.forEach((u) => u()));
+    };
+  }, []);
 
-    return () => window.clearInterval(timer);
-  }, [hasSessionCookie, settings.refreshIntervalSec]);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 5000);
+    return () => window.clearInterval(id);
+  }, []);
 
-  const cycleLabel = useMemo(() => {
-    if (!summary) return '—';
-    return `${formatDate(summary.billingCycleStart)} → ${formatDate(summary.billingCycleEnd)}`;
-  }, [summary]);
+  const usage = summary?.individualUsage.plan ?? null;
+  const forecast = useMemo(() => {
+    if (!summary || !usage) return null;
+    return computeForecast({ summary, history });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, history, tick]);
 
-  async function saveCookie() {
-    setCookieStatus(null);
-    try {
-      await invoke('save_session_cookie', { rawInput: cookieInput });
-      setCookieInput('');
-      setHasSessionCookie(true);
-      setCookieStatus('Securely saved in Windows Credential Manager.');
-      setSettingsOpen(false);
-      await refresh(true);
-    } catch (err) {
-      setCookieStatus(err instanceof Error ? err.message : String(err));
+  const updatedLabel = lastFetchedAt ? formatRelative(lastFetchedAt) : '—';
+
+  const ctx: WidgetContext | null = useMemo(() => {
+    if (!summary || !usage) return null;
+    return {
+      summary,
+      usage,
+      history,
+      forecast,
+      lastFetchedAt,
+      fromCache,
+      tick,
+      percentDecimals: settings.percentDecimals,
+    };
+  }, [summary, usage, history, forecast, lastFetchedAt, fromCache, tick, settings.percentDecimals]);
+
+  function handleAddWidget(kind: WidgetKind): void {
+    setLayoutState((prev) => [...prev, newWidget(kind, prev)]);
+  }
+  function handleRemoveWidget(id: string): void {
+    setLayoutState((prev) => prev.filter((w) => w.id !== id));
+    if (popouts.some((p) => p.id === id)) {
+      void closePopOut(id);
     }
   }
-
-  async function clearCookie() {
-    setCookieStatus(null);
-    try {
-      await invoke('clear_session_cookie');
-      setHasSessionCookie(false);
-      setSummary(null);
-      setError(null);
-      setSettingsOpen(true);
-      setCookieStatus('Saved session removed.');
-    } catch (err) {
-      setCookieStatus(err instanceof Error ? err.message : String(err));
-    }
+  function handleResetLayout(): void {
+    setLayoutState(resetLayout());
   }
+  // Drag-to-detach reports the descriptor of the freshly-spawned popout so
+  // we can persist it and reflect the state in the dashboard.
+  function handlePopOut(descriptor: PopOutDescriptor): void {
+    setPopouts((prev) => {
+      const filtered = prev.filter((p) => p.id !== descriptor.id);
+      return [...filtered, descriptor];
+    });
+  }
+
+  const poppedOutIds = useMemo(() => new Set(popouts.map((p) => p.id)), [popouts]);
 
   return (
     <div className={`app-shell ${settings.compactMode ? 'compact' : ''}`}>
-      <div className="glass-panel">
-        <header className="overlay-header" onMouseDown={() => void getCurrentWindow().startDragging()}>
-          <div>
-            <div className="eyebrow">Cursor Usage Overlay</div>
-            <div className="title">{summary?.membershipType?.toUpperCase() ?? 'SETUP REQUIRED'}</div>
+      <div className="app-surface">
+        <header
+          className="overlay-header"
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+            void getCurrentWindow().startDragging();
+          }}
+        >
+          <div className="header-text">
+            <div className="eyebrow">
+              {summary?.membershipType?.toUpperCase() ?? 'CURSOR'} ·{' '}
+              {summary?.limitType ?? 'usage'}
+            </div>
+            <div className="title">
+              {usage
+                ? `API ${formatPercentDetailed(usage.apiPercentUsed, settings.percentDecimals)}`
+                : 'Setup required'}
+            </div>
+            <div className="subtitle">
+              {usage
+                ? `Total ${formatPercentDetailed(usage.totalPercentUsed, settings.percentDecimals)} · ${updatedLabel}${
+                    fromCache ? ' · cached (304)' : ''
+                  }`
+                : 'Paste your session in Settings'}
+            </div>
           </div>
-          <div className="header-actions" onMouseDown={(e) => e.stopPropagation()}>
-            <button className="icon-button" type="button" onClick={() => void refresh(true)} disabled={refreshing || !hasSessionCookie}>
+          <div className="header-actions">
+            <button
+              type="button"
+              className={`icon-button ${editMode ? 'is-active' : ''}`}
+              onClick={() => setEditMode((v) => !v)}
+              title={editMode ? 'Lock layout' : 'Edit layout (drag/resize widgets)'}
+              aria-label="Edit layout"
+            >
+              {editMode ? '🔒' : '⊞'}
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => void invoke('force_refresh')}
+              disabled={!hasSessionCookie}
+              title="Refresh now"
+              aria-label="Refresh"
+            >
               ↻
             </button>
-            <button className="icon-button" type="button" onClick={() => setSettingsOpen((v) => !v)}>
+            <button
+              type="button"
+              className={`icon-button ${settingsOpen ? 'is-active' : ''}`}
+              onClick={() => setSettingsOpen((v) => !v)}
+              title="Settings"
+              aria-label="Settings"
+            >
               ⚙
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => void getCurrentWindow().hide()}
+              title="Hide overlay (Ctrl+Alt+U to toggle)"
+              aria-label="Hide"
+            >
+              –
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => void getCurrentWindow().close()}
+              title="Quit Cursor Usage Overlay"
+              aria-label="Quit"
+            >
+              ✕
             </button>
           </div>
         </header>
 
-        {settingsOpen ? (
-          <section className="settings-panel">
-            <div className="settings-title">Settings</div>
-            <p className="settings-copy">
-              Paste either the full <code>Cookie</code> header or just the <code>WorkosCursorSessionToken</code> value.
-              The secret is stored only in Windows Credential Manager.
-            </p>
-            <label className="field-label">
-              Cursor session cookie
-              <textarea
-                className="text-input cookie-input"
-                value={cookieInput}
-                onChange={(e) => setCookieInput(e.target.value)}
-                placeholder="WorkosCursorSessionToken=... or full Cookie header"
-              />
-            </label>
-            <div className="settings-grid">
-              <label className="field-label">
-                Refresh interval (sec)
-                <input
-                  className="text-input"
-                  type="number"
-                  min={5}
-                  max={300}
-                  value={settings.refreshIntervalSec}
-                  onChange={(e) =>
-                    setSettings((current) => ({
-                      ...current,
-                      refreshIntervalSec: clampNumber(Number(e.target.value), 5, 300, current.refreshIntervalSec)
-                    }))
-                  }
-                />
-              </label>
-              <label className="field-label">
-                Opacity ({Math.round(settings.opacity * 100)}%)
-                <input
-                  type="range"
-                  min={55}
-                  max={100}
-                  value={Math.round(settings.opacity * 100)}
-                  onChange={(e) =>
-                    setSettings((current) => ({
-                      ...current,
-                      opacity: clampNumber(Number(e.target.value) / 100, 0.55, 1, current.opacity)
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
-            <div className="settings-grid toggles">
-              <Toggle
-                checked={settings.compactMode}
-                onChange={(compactMode) => setSettings((current) => ({ ...current, compactMode }))}
-                label="Compact mode"
-              />
-              <Toggle
-                checked={settings.alwaysOnTop}
-                onChange={(alwaysOnTop) => setSettings((current) => ({ ...current, alwaysOnTop }))}
-                label="Always on top"
-              />
-            </div>
-
-            <div className="settings-actions">
-              <button className="button primary" type="button" onClick={saveCookie} disabled={!cookieInput.trim()}>
-                Save session
-              </button>
-              <button className="button" type="button" onClick={clearCookie} disabled={!hasSessionCookie}>
-                Clear session
+        {editMode && (
+          <div className="edit-bar" role="toolbar" aria-label="Layout editor">
+            <span className="edit-bar-hint">
+              Drag to rearrange · resize from the corner · ✕ removes ·{' '}
+              <strong>pull a widget out of this window to detach it onto your desktop</strong>
+            </span>
+            <div className="edit-bar-actions">
+              <AddWidgetMenu onAdd={handleAddWidget} />
+              <button type="button" className="button" onClick={handleResetLayout}>
+                Reset
               </button>
             </div>
-            {cookieStatus ? <div className="inline-status">{cookieStatus}</div> : null}
-          </section>
-        ) : null}
+          </div>
+        )}
+
+        {settingsOpen && (
+          <SettingsPanel
+            settings={settings}
+            setSettings={setSettings}
+            hasSessionCookie={hasSessionCookie}
+            onCookieSaved={async () => {
+              setHasSessionCookie(true);
+              setSettingsOpen(false);
+              await invoke('force_refresh');
+            }}
+            onCookieCleared={() => {
+              setHasSessionCookie(false);
+              setSummary(null);
+              setError(null);
+            }}
+          />
+        )}
 
         {loading ? (
           <section className="status-panel">Loading…</section>
@@ -328,42 +349,35 @@ export default function App() {
           <section className="status-panel error">
             <div className="status-title">Could not refresh</div>
             <div>{error}</div>
+            <button
+              className="button"
+              type="button"
+              onClick={() => void invoke('force_refresh')}
+              style={{ marginTop: 12 }}
+            >
+              Retry
+            </button>
           </section>
-        ) : summary && usage ? (
-          <>
-            <section className="hero-row">
-              <div className="hero-copy">
-                <div className="hero-title">{titleMessage}</div>
-                <div className="hero-subtitle">{subtitleMessage}</div>
-                <div className="hero-meta">
-                  Cycle: {cycleLabel}
-                  {lastFetchedAt ? ` • Updated ${formatDate(lastFetchedAt)}` : ''}
-                  {fromCache ? ' • 304 / cached' : ''}
-                </div>
-              </div>
-              <div className="badge-stack">
-                <span className="pill">{summary.limitType ?? 'user'}</span>
-                <span className="pill accent">{summary.isUnlimited ? 'Unlimited' : 'Metered'}</span>
-              </div>
-            </section>
-
-            <section className="ring-grid">
-              <RingGauge label="Auto" value={usage.autoPercentUsed} />
-              <RingGauge label="API" value={usage.apiPercentUsed} />
-              <RingGauge label="Total" value={usage.totalPercentUsed} />
-            </section>
-
-            <section className="metrics-grid">
-              <MetricCard title="Used" value={formatNumber(usage.used)} sub="Included plan usage" />
-              <MetricCard title="Remaining" value={formatNumber(usage.remaining)} sub="Left this cycle" />
-              <MetricCard title="Limit" value={formatNumber(usage.limit)} sub="Current plan ceiling" />
-              <MetricCard title="Breakdown" value={formatNumber(usage.breakdown.total)} sub={`Included ${formatNumber(usage.breakdown.included)} • Bonus ${formatNumber(usage.breakdown.bonus)}`} />
-            </section>
-          </>
+        ) : ctx ? (
+          <WidgetGrid
+            layout={layout}
+            setLayout={setLayoutState}
+            ctx={ctx}
+            editable={editMode}
+            onRemove={handleRemoveWidget}
+            onPopOut={handlePopOut}
+            poppedOutIds={poppedOutIds}
+          />
         ) : (
           <section className="status-panel">Paste your session cookie to begin.</section>
         )}
       </div>
     </div>
   );
+}
+
+function errorToString(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return JSON.stringify(err);
 }
